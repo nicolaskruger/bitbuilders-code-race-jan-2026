@@ -1,3 +1,5 @@
+use api::user::User;
+use reqwest::Client;
 use std::future::Future;
 use std::process::{Child, Command};
 use std::thread::sleep;
@@ -25,10 +27,61 @@ where
 
 #[tokio::test]
 #[ignore = "e2e"]
-async fn e2e_full_flow() {
+async fn hello_world() {
     server_on(|| async {
         let res = reqwest::get("http://localhost:8080/").await.unwrap();
         assert_eq!(res.status(), 200);
+    })
+    .await;
+}
+
+#[tokio::test]
+#[ignore = "e2e"]
+async fn no_user_bad_request() {
+    server_on(|| async {
+        let client = Client::new();
+        let res = client
+            .post("http://localhost:8080/user")
+            .send()
+            .await
+            .unwrap();
+        assert_eq!(res.status(), 400);
+    })
+    .await;
+}
+
+#[tokio::test]
+#[ignore = "e2e"]
+async fn no_user_empty_user_bad_request() {
+    server_on(|| async {
+        let client = Client::new();
+        let res = client
+            .post("http://localhost:8080/user")
+            .body("{}")
+            .send()
+            .await
+            .unwrap();
+        assert_eq!(res.status(), 400);
+    })
+    .await;
+}
+
+#[tokio::test]
+#[ignore = "e2e"]
+async fn full_body_ok() {
+    server_on(|| async {
+        let user = User {
+            name: String::from("name"),
+            password: String::from("password"),
+        };
+        let client = Client::new();
+        let res = client
+            .post("http://localhost:8080/user")
+            .json(&user)
+            .send()
+            .await
+            .unwrap();
+        assert_eq!(res.status(), 201);
     })
     .await;
 }

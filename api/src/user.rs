@@ -1,13 +1,13 @@
 use actix_web::{HttpResponse, Responder, post, web};
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Serialize)]
 pub struct User {
-    name: String,
-    password: String,
+    pub name: String,
+    pub password: String,
 }
 
 #[post("/user")]
 pub async fn create(body: web::Json<User>) -> impl Responder {
-    HttpResponse::Ok().body(body.name.clone())
+    HttpResponse::Created().body(body.name.clone())
 }
