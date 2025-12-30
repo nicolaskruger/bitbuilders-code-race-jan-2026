@@ -1,4 +1,4 @@
-use api::user::User;
+use api::user::UserDto;
 use reqwest::Client;
 use std::future::Future;
 use std::process::{Child, Command};
@@ -70,7 +70,7 @@ async fn no_user_empty_user_bad_request() {
 #[ignore = "e2e"]
 async fn full_body_ok() {
     server_on(|| async {
-        let user = User {
+        let user = UserDto {
             name: String::from("name"),
             password: String::from("password"),
         };
