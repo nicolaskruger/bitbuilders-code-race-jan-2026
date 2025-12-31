@@ -1,10 +1,16 @@
+use dotenvy::dotenv;
 use sqlx::postgres::PgPoolOptions;
+use std::env;
 
 #[tokio::main]
 async fn main() -> Result<(), sqlx::Error> {
+    dotenv().ok();
+
+    let db_str = env::var("db_str").unwrap();
+
     let pool = PgPoolOptions::new()
         .max_connections(5)
-        .connect("postgresql://postgres:postgres@localhost:5432/mydb")
+        .connect(&db_str)
         .await?;
 
     let row: (i64,) = sqlx::query_as("SELECT $1")
