@@ -1,3 +1,5 @@
+mod user;
+
 use dotenvy::dotenv;
 use sqlx::postgres::PgPoolOptions;
 use std::env;
@@ -13,14 +15,7 @@ async fn main() -> Result<(), sqlx::Error> {
         .connect(&db_str)
         .await?;
 
-    let row: (i64,) = sqlx::query_as("SELECT $1")
-        .bind(150_i64)
-        .fetch_one(&pool)
-        .await?;
-
-    print!("{}", row.0);
-
-    assert_eq!(row.0, 150);
+    user::create(&pool).await;
 
     Ok(())
 }
