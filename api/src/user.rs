@@ -1,7 +1,7 @@
 use actix_web::{HttpResponse, Responder, post, web};
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct UserDto {
     pub name: String,
     pub password: String,
@@ -14,6 +14,8 @@ pub async fn create(body: web::Json<UserDto>) -> impl Responder {
 
 trait IUserRepo {
     async fn exists(&self, name: &String) -> bool;
+    async fn password_hash(&self, password: &String) -> String;
+    async fn register(&self, dto: &UserDto);
 }
 
 trait IUserService {
@@ -35,6 +37,11 @@ impl<R: IUserRepo> IUserService for UserService<R> {
         if self.repo.exists(&dto.name).await {
             Err(String::from("Not created because it already exists."))
         } else {
+            let dto = UserDto {
+                name: dto.name.clone(),
+                password: self.repo.password_hash(&dto.password).await,
+            };
+            self.repo.register(&dto).await;
             Ok(())
         }
     }
@@ -48,8 +55,17 @@ mod tests {
     }
 
     impl IUserRepo for MockUserRepo {
-        async fn exists(&self, name: &String) -> bool {
+        async fn exists(&self, _: &String) -> bool {
             self.mock_exists
+        }
+
+        async fn password_hash(&self, _: &String) -> String {
+            String::from("pass")
+        }
+
+        async fn register(&self, dto: &UserDto) {
+            assert_eq!(dto.name, "nk");
+            assert_eq!(dto.password, "pass");
         }
     }
 
@@ -67,5 +83,26 @@ mod tests {
         let result = service.register(&dto).await;
 
         assert!(result.is_err(), "Not created because it already exists.");
+    }
+
+    #[tokio::test]
+    async fn create_user() {
+        let mut _dto = UserDto {
+            name: String::from(""),
+            password: String::from(""),
+        };
+
+        let mock_repo = MockUserRepo { mock_exists: false };
+
+        let service = UserService { repo: mock_repo };
+
+        let dto = UserDto {
+            name: String::from("nk"),
+            password: String::from("123"),
+        };
+
+        let result = service.register(&dto).await;
+
+        assert!(result.is_ok(), " Created.");
     }
 }
