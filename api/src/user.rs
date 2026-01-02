@@ -1,13 +1,8 @@
 use actix_web::{HttpResponse, Responder, post, web};
+use bcrypt::{DEFAULT_COST, hash, verify};
 use serde::{Deserialize, Serialize};
-use sqlx::Execute;
 use sqlx::Pool;
 use sqlx::postgres::Postgres;
-
-use sqlx::postgres::PgPoolOptions;
-
-use dotenvy::dotenv;
-use std::env;
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct UserDto {
@@ -55,7 +50,7 @@ impl IUserRepo for UserRepo<'_> {
         exists.0
     }
     async fn password_hash(&self, password: &String) -> String {
-        todo!()
+        hash(password, DEFAULT_COST).unwrap()
     }
     async fn register(&self, dto: &UserDto) {
         sqlx::query("INSERT INTO users (name, password) VALUES ($1, $2)")
@@ -71,7 +66,7 @@ trait IUserService {
     async fn register(&self, dto: &UserDto) -> Result<(), String>;
 }
 
-struct UserService<R: IUserRepo> {
+pub struct UserService<R: IUserRepo> {
     repo: R,
 }
 
@@ -98,6 +93,9 @@ impl<R: IUserRepo> IUserService for UserService<R> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use dotenvy::dotenv;
+    use sqlx::postgres::PgPoolOptions;
+    use std::env;
 
     struct MockUserRepo {
         mock_exists: bool,
@@ -197,6 +195,33 @@ mod tests {
         sqlx::query("DELETE FROM users WHERE name = $1")
             .bind(new_user.name)
             .execute(&pool)
-            .await;
+            .await
+            .unwrap();
+    }
+
+    #[tokio::test]
+    #[ignore = "db_test"]
+    async fn user_service_register() {
+        let pool = load_pool().await;
+
+        let new_user = UserDto {
+            name: String::from("new_user"),
+            password: String::from("new_password"),
+        };
+
+        let repo = UserRepo::new(&pool);
+        let service = UserService::new(repo);
+
+        let res = service.register(&new_user).await;
+        assert!(res.is_ok());
+
+        let res = service.register(&new_user).await;
+        assert!(res.is_err());
+
+        sqlx::query("DELETE FROM users WHERE name = $1")
+            .bind(new_user.name)
+            .execute(&pool)
+            .await
+            .unwrap();
     }
 }
