@@ -52,13 +52,18 @@ impl IUserRepo for UserRepo<'_> {
         .await
         .unwrap();
 
-        return exists.0;
+        exists.0
     }
     async fn password_hash(&self, password: &String) -> String {
         todo!()
     }
     async fn register(&self, dto: &UserDto) {
-        todo!()
+        sqlx::query("INSERT INTO users (name, password) VALUES ($1, $2)")
+            .bind(&dto.name)
+            .bind(&dto.password)
+            .execute(self.pool)
+            .await
+            .unwrap();
     }
 }
 
@@ -169,5 +174,29 @@ mod tests {
         let repo = UserRepo::new(&pool);
 
         repo.exists(&String::from("test")).await;
+    }
+
+    #[tokio::test]
+    #[ignore = "db_test"]
+    async fn user_repo_creaate_user() {
+        let pool = load_pool().await;
+
+        let new_user = UserDto {
+            name: String::from("new_user"),
+            password: String::from("new_password"),
+        };
+
+        let repo = UserRepo::new(&pool);
+
+        repo.register(&new_user).await;
+
+        let exists = repo.exists(&String::from("new_user")).await;
+
+        assert!(exists, "exists user");
+
+        sqlx::query("DELETE FROM users WHERE name = $1")
+            .bind(new_user.name)
+            .execute(&pool)
+            .await;
     }
 }
