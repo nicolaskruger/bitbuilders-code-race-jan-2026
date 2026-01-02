@@ -1,5 +1,13 @@
 use actix_web::{HttpResponse, Responder, post, web};
 use serde::{Deserialize, Serialize};
+use sqlx::Execute;
+use sqlx::Pool;
+use sqlx::postgres::Postgres;
+
+use sqlx::postgres::PgPoolOptions;
+
+use dotenvy::dotenv;
+use std::env;
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct UserDto {
@@ -12,10 +20,46 @@ pub async fn create(body: web::Json<UserDto>) -> impl Responder {
     HttpResponse::Created().body(body.name.clone())
 }
 
+struct UserRepo<'a> {
+    pool: &'a Pool<Postgres>,
+}
+
 trait IUserRepo {
     async fn exists(&self, name: &String) -> bool;
     async fn password_hash(&self, password: &String) -> String;
     async fn register(&self, dto: &UserDto);
+}
+
+impl<'a> UserRepo<'a> {
+    fn new(pool: &'a Pool<Postgres>) -> Self {
+        Self { pool }
+    }
+}
+
+impl IUserRepo for UserRepo<'_> {
+    async fn exists(&self, name: &String) -> bool {
+        let exists: (bool,) = sqlx::query_as(
+            r#"
+        SELECT EXISTS (
+            SELECT 1
+            FROM users
+            WHERE name = $1
+        )
+        "#,
+        )
+        .bind(name)
+        .fetch_one(self.pool)
+        .await
+        .unwrap();
+
+        return exists.0;
+    }
+    async fn password_hash(&self, password: &String) -> String {
+        todo!()
+    }
+    async fn register(&self, dto: &UserDto) {
+        todo!()
+    }
 }
 
 trait IUserService {
@@ -104,5 +148,26 @@ mod tests {
         let result = service.register(&dto).await;
 
         assert!(result.is_ok(), " Created.");
+    }
+
+    async fn load_pool() -> Pool<Postgres> {
+        dotenv().ok();
+        let db_str = env::var("db_str").unwrap();
+
+        PgPoolOptions::new()
+            .max_connections(5)
+            .connect(&db_str)
+            .await
+            .unwrap()
+    }
+
+    #[tokio::test]
+    #[ignore = "db_test"]
+    async fn user_repo_exists() {
+        let pool = load_pool().await;
+
+        let repo = UserRepo::new(&pool);
+
+        repo.exists(&String::from("test")).await;
     }
 }
