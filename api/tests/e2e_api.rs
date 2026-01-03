@@ -1,5 +1,9 @@
 use api::user::UserDto;
+use dotenvy::dotenv;
 use reqwest::Client;
+use sqlx::postgres::PgPoolOptions;
+use sqlx::{Pool, Postgres};
+use std::env;
 use std::future::Future;
 use std::process::{Child, Command};
 use std::thread::sleep;
@@ -84,4 +88,43 @@ async fn full_body_ok() {
         assert_eq!(res.status(), 201);
     })
     .await;
+}
+
+async fn load_pool() -> Pool<Postgres> {
+    dotenv().ok();
+    let db_str = env::var("db_str").unwrap();
+
+    PgPoolOptions::new()
+        .max_connections(5)
+        .connect(&db_str)
+        .await
+        .unwrap()
+}
+
+#[tokio::test]
+#[ignore = "e2e"]
+async fn e2e_register_user() {
+    let pool = load_pool().await;
+
+    server_on(|| async {
+        let user = UserDto {
+            name: String::from("name"),
+            password: String::from("password"),
+        };
+        let client = Client::new();
+        let res = client
+            .post("http://localhost:8080/user")
+            .json(&user)
+            .send()
+            .await
+            .unwrap();
+        assert_eq!(res.status(), 201);
+    })
+    .await;
+
+    sqlx::query("DELETE FROM users WHERE name = $1")
+        .bind("name")
+        .execute(&pool)
+        .await
+        .unwrap();
 }

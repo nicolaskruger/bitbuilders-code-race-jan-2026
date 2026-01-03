@@ -1,8 +1,13 @@
 use actix_web::{HttpResponse, Responder, post, web};
-use bcrypt::{DEFAULT_COST, hash, verify};
+use bcrypt::{DEFAULT_COST, hash};
 use serde::{Deserialize, Serialize};
 use sqlx::Pool;
 use sqlx::postgres::Postgres;
+
+#[derive(Debug, Deserialize, Serialize, Clone)]
+struct UserRespose {
+    msg: String,
+}
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct UserDto {
@@ -11,8 +16,18 @@ pub struct UserDto {
 }
 
 #[post("/user")]
-pub async fn create(body: web::Json<UserDto>) -> impl Responder {
-    HttpResponse::Created().body(body.name.clone())
+pub async fn create(pool: web::Data<Pool<Postgres>>, body: web::Json<UserDto>) -> impl Responder {
+    let repo = UserRepo::new(&pool);
+    let service = UserService::new(repo);
+
+    let res = service.register(&body.into_inner()).await;
+
+    match res {
+        Ok(_) => HttpResponse::Created().json(UserRespose {
+            msg: String::from("user created"),
+        }),
+        Err(msg) => HttpResponse::BadRequest().json(UserRespose { msg }),
+    }
 }
 
 struct UserRepo<'a> {
@@ -20,8 +35,8 @@ struct UserRepo<'a> {
 }
 
 trait IUserRepo {
-    async fn exists(&self, name: &String) -> bool;
-    async fn password_hash(&self, password: &String) -> String;
+    async fn exists(&self, name: &str) -> bool;
+    async fn password_hash(&self, password: &str) -> String;
     async fn register(&self, dto: &UserDto);
 }
 
@@ -32,7 +47,7 @@ impl<'a> UserRepo<'a> {
 }
 
 impl IUserRepo for UserRepo<'_> {
-    async fn exists(&self, name: &String) -> bool {
+    async fn exists(&self, name: &str) -> bool {
         let exists: (bool,) = sqlx::query_as(
             r#"
         SELECT EXISTS (
@@ -49,7 +64,7 @@ impl IUserRepo for UserRepo<'_> {
 
         exists.0
     }
-    async fn password_hash(&self, password: &String) -> String {
+    async fn password_hash(&self, password: &str) -> String {
         hash(password, DEFAULT_COST).unwrap()
     }
     async fn register(&self, dto: &UserDto) {
@@ -66,7 +81,7 @@ trait IUserService {
     async fn register(&self, dto: &UserDto) -> Result<(), String>;
 }
 
-pub struct UserService<R: IUserRepo> {
+struct UserService<R: IUserRepo> {
     repo: R,
 }
 
@@ -102,11 +117,11 @@ mod tests {
     }
 
     impl IUserRepo for MockUserRepo {
-        async fn exists(&self, _: &String) -> bool {
+        async fn exists(&self, _: &str) -> bool {
             self.mock_exists
         }
 
-        async fn password_hash(&self, _: &String) -> String {
+        async fn password_hash(&self, _: &str) -> String {
             String::from("pass")
         }
 
