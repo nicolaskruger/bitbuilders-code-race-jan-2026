@@ -1,3 +1,6 @@
+use std::thread::sleep;
+use std::time::Duration;
+
 use actix_web::{HttpResponse, Responder, get, post, web};
 use bcrypt::{DEFAULT_COST, hash};
 use serde::{Deserialize, Serialize};
@@ -13,17 +16,6 @@ struct UserRespose {
 pub struct UserDto {
     pub name: String,
     pub password: String,
-}
-
-#[derive(Debug, Deserialize, Serialize, Clone)]
-pub struct AuthResponse {
-    pub token: String,
-    pub refresh: String,
-}
-
-#[get("/user/auth")]
-pub async fn aut(pool: web::Data<Pool<Postgres>>, body: web::Json<UserDto>) -> impl Responder {
-    HttpResponse::Unauthorized()
 }
 
 #[post("/user")]
@@ -45,10 +37,11 @@ struct UserRepo<'a> {
     pool: &'a Pool<Postgres>,
 }
 
-trait IUserRepo {
-    async fn exists(&self, name: &str) -> bool;
-    async fn password_hash(&self, password: &str) -> String;
-    async fn register(&self, dto: &UserDto);
+pub trait IUserRepo {
+    fn exists(&self, name: &str) -> impl Future<Output = bool>;
+    fn password_hash(&self, password: &str) -> impl Future<Output = String>;
+    fn register(&self, dto: &UserDto) -> impl Future<Output = ()>;
+    fn fetch_by_name(&self, name: &str) -> impl Future<Output = UserDto>;
 }
 
 impl<'a> UserRepo<'a> {
@@ -85,6 +78,12 @@ impl IUserRepo for UserRepo<'_> {
             .execute(self.pool)
             .await
             .unwrap();
+    }
+
+    fn fetch_by_name(&self, name: &str) -> impl Future<Output = UserDto> {
+        async move {
+            todo!();
+        }
     }
 }
 
@@ -139,6 +138,10 @@ mod tests {
         async fn register(&self, dto: &UserDto) {
             assert_eq!(dto.name, "nk");
             assert_eq!(dto.password, "pass");
+        }
+
+        fn fetch_by_name(&self, name: &str) -> impl Future<Output = UserDto> {
+            async move { todo!() }
         }
     }
 

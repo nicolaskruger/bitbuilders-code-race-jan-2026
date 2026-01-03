@@ -1,3 +1,4 @@
+mod auth;
 mod user;
 
 use std::env;
@@ -36,6 +37,7 @@ async fn main() -> std::io::Result<()> {
             .app_data(web::Data::new(pool.clone()))
             .service(hello)
             .service(user::create)
+            .service(auth::auth)
             .route("/hey", web::get().to(manual_hello))
     })
     .bind(("127.0.0.1", 8080))?
