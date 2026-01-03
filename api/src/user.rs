@@ -1,4 +1,4 @@
-use actix_web::{HttpResponse, Responder, post, web};
+use actix_web::{HttpResponse, Responder, get, post, web};
 use bcrypt::{DEFAULT_COST, hash};
 use serde::{Deserialize, Serialize};
 use sqlx::Pool;
@@ -13,6 +13,17 @@ struct UserRespose {
 pub struct UserDto {
     pub name: String,
     pub password: String,
+}
+
+#[derive(Debug, Deserialize, Serialize, Clone)]
+pub struct AuthResponse {
+    pub token: String,
+    pub refresh: String,
+}
+
+#[get("/user/auth")]
+pub async fn aut(pool: web::Data<Pool<Postgres>>, body: web::Json<UserDto>) -> impl Responder {
+    HttpResponse::Unauthorized()
 }
 
 #[post("/user")]
