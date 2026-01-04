@@ -156,7 +156,7 @@ mod tests {
             assert_eq!(dto.password, "pass");
         }
 
-        async fn fetch_by_name(&self, name: &str) -> User {
+        async fn fetch_by_name(&self, _: &str) -> User {
             todo!()
         }
     }

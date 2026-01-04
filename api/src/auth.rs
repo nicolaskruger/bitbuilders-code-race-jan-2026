@@ -9,8 +9,6 @@ use jsonwebtoken::{EncodingKey, Header, encode};
 use serde::{Deserialize, Serialize};
 use sqlx::{Pool, Postgres};
 
-use bcrypt;
-
 #[derive(Debug, Serialize, Deserialize)]
 struct Claims {
     user_id: i32,
@@ -104,9 +102,6 @@ mod tests {
     use super::*;
     use async_trait::async_trait;
     use bcrypt::{DEFAULT_COST, hash};
-    use dotenvy::dotenv;
-    use sqlx::postgres::PgPoolOptions;
-    use std::env;
 
     struct MockUserRepo<'a> {
         mock_exists: bool,
