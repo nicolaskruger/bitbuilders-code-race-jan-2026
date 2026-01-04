@@ -13,6 +13,13 @@ struct UserRespose {
 }
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
+pub struct User {
+    pub id: i32,
+    pub name: String,
+    pub password: String,
+}
+
+#[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct UserDto {
     pub name: String,
     pub password: String,
@@ -41,7 +48,7 @@ pub trait IUserRepo {
     fn exists(&self, name: &str) -> impl Future<Output = bool>;
     fn password_hash(&self, password: &str) -> impl Future<Output = String>;
     fn register(&self, dto: &UserDto) -> impl Future<Output = ()>;
-    fn fetch_by_name(&self, name: &str) -> impl Future<Output = UserDto>;
+    fn fetch_by_name(&self, name: &str) -> impl Future<Output = User>;
 }
 
 impl<'a> UserRepo<'a> {
@@ -80,7 +87,7 @@ impl IUserRepo for UserRepo<'_> {
             .unwrap();
     }
 
-    fn fetch_by_name(&self, name: &str) -> impl Future<Output = UserDto> {
+    fn fetch_by_name(&self, name: &str) -> impl Future<Output = User> {
         async move {
             todo!();
         }
@@ -140,7 +147,7 @@ mod tests {
             assert_eq!(dto.password, "pass");
         }
 
-        fn fetch_by_name(&self, name: &str) -> impl Future<Output = UserDto> {
+        fn fetch_by_name(&self, name: &str) -> impl Future<Output = User> {
             async move { todo!() }
         }
     }
