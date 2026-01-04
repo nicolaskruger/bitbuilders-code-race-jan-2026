@@ -12,7 +12,7 @@ struct UserRespose {
     msg: String,
 }
 
-#[derive(Debug, Deserialize, Serialize, Clone)]
+#[derive(Debug, Deserialize, Serialize, Clone, sqlx::FromRow)]
 pub struct User {
     pub id: i32,
     pub name: String,
@@ -87,10 +87,18 @@ impl IUserRepo for UserRepo<'_> {
             .unwrap();
     }
 
-    fn fetch_by_name(&self, name: &str) -> impl Future<Output = User> {
-        async move {
-            todo!();
-        }
+    async fn fetch_by_name(&self, name: &str) -> User {
+        sqlx::query_as::<_, User>(
+            r#"
+            SELECT id, name, password
+            FROM users
+            WHERE name = $1
+        "#,
+        )
+        .bind(name)
+        .fetch_one(self.pool)
+        .await
+        .unwrap()
     }
 }
 
@@ -253,6 +261,40 @@ mod tests {
 
         let res = service.register(&new_user).await;
         assert!(res.is_err());
+
+        sqlx::query("DELETE FROM users WHERE name = $1")
+            .bind(new_user.name)
+            .execute(&pool)
+            .await
+            .unwrap();
+    }
+
+    #[tokio::test]
+    #[ignore = "db_test"]
+    async fn user_repo_fetch() {
+        let pool = load_pool().await;
+
+        let new_user = UserDto {
+            name: String::from("new_user"),
+            password: String::from("new_password"),
+        };
+
+        sqlx::query("DELETE FROM users WHERE name = $1")
+            .bind(new_user.name.clone())
+            .execute(&pool)
+            .await
+            .unwrap();
+
+        let repo = UserRepo::new(&pool);
+        let service = UserService::new(repo);
+
+        let res = service.register(&new_user).await;
+        assert!(res.is_ok());
+
+        let repo = UserRepo::new(&pool);
+        let fetch_user = repo.fetch_by_name("new_user").await;
+
+        assert_eq!(fetch_user.name, "new_user");
 
         sqlx::query("DELETE FROM users WHERE name = $1")
             .bind(new_user.name)
