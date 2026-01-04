@@ -4,13 +4,12 @@ use actix_web::{
     HttpResponse, Responder, post,
     web::{self, Json},
 };
+use api::user;
 use jsonwebtoken::{EncodingKey, Header, encode};
 use serde::{Deserialize, Serialize};
 use sqlx::{Pool, Postgres};
 
 use bcrypt;
-
-use crate::user::IUserRepo;
 
 #[derive(Debug, Serialize, Deserialize)]
 struct Claims {
@@ -29,20 +28,31 @@ struct UserDto {
     password: String,
 }
 
-#[post("/user/auth")]
+#[derive(Debug, Deserialize, Serialize, Clone)]
+struct AuthMsg {
+    msg: String,
+}
+
+#[post("/auth")]
 pub async fn auth(pool: web::Data<Pool<Postgres>>, body: Json<UserDto>) -> impl Responder {
-    HttpResponse::Unauthorized()
+    let user_repo = user::UserRepo::new(&pool);
+    let auth_service = AuthService::new(user_repo);
+
+    match auth_service.auth(&body).await {
+        Ok(resp) => HttpResponse::Ok().json(resp),
+        Err(err) => HttpResponse::Unauthorized().json(AuthMsg { msg: err }),
+    }
 }
 
 trait IAuthService {
     async fn auth(&self, user: &UserDto) -> Result<AuthResponse, String>;
 }
 
-struct AuthService<UserRepo: IUserRepo> {
+struct AuthService<UserRepo: user::IUserRepo> {
     user_repo: UserRepo,
 }
 
-impl<UserRepo: IUserRepo> AuthService<UserRepo> {
+impl<UserRepo: user::IUserRepo> AuthService<UserRepo> {
     fn new(user_repo: UserRepo) -> Self {
         Self { user_repo }
     }
@@ -75,7 +85,7 @@ impl<UserRepo: IUserRepo> AuthService<UserRepo> {
     }
 }
 
-impl<R: IUserRepo> IAuthService for AuthService<R> {
+impl<R: user::IUserRepo> IAuthService for AuthService<R> {
     async fn auth(&self, user: &UserDto) -> Result<AuthResponse, String> {
         if !self.user_repo.exists(&user.name).await {
             Err(String::from("User de not exists."))
@@ -89,9 +99,10 @@ impl<R: IUserRepo> IAuthService for AuthService<R> {
 
 #[cfg(test)]
 mod tests {
-    use crate::user;
+    use api::user;
 
     use super::*;
+    use async_trait::async_trait;
     use bcrypt::{DEFAULT_COST, hash};
     use dotenvy::dotenv;
     use sqlx::postgres::PgPoolOptions;
@@ -102,7 +113,8 @@ mod tests {
         fetch_user: Option<&'a user::UserDto>,
     }
 
-    impl IUserRepo for MockUserRepo<'_> {
+    #[async_trait]
+    impl user::IUserRepo for MockUserRepo<'_> {
         async fn exists(&self, _: &str) -> bool {
             self.mock_exists
         }
@@ -115,14 +127,13 @@ mod tests {
             todo!()
         }
 
-        fn fetch_by_name(&self, _: &str) -> impl Future<Output = user::User> {
+        async fn fetch_by_name(&self, _: &str) -> user::User {
             let user = self.fetch_user.unwrap();
-            let dto = user::User {
+            user::User {
                 id: 123,
                 name: user.name.clone(),
                 password: user.password.clone(),
-            };
-            async move { dto }
+            }
         }
     }
 

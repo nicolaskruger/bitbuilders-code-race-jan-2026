@@ -1,6 +1,7 @@
 use api::user::UserDto;
 use dotenvy::dotenv;
 use reqwest::Client;
+use serde::Deserialize;
 use sqlx::postgres::PgPoolOptions;
 use sqlx::{Pool, Postgres};
 use std::env;
@@ -119,6 +120,60 @@ async fn e2e_register_user() {
             .await
             .unwrap();
         assert_eq!(res.status(), 201);
+    })
+    .await;
+
+    sqlx::query("DELETE FROM users WHERE name = $1")
+        .bind("name")
+        .execute(&pool)
+        .await
+        .unwrap();
+}
+
+#[derive(Debug, Deserialize)]
+struct AuthToken {
+    token: String,
+}
+
+#[tokio::test]
+#[ignore = "e2e"]
+async fn e2e_fetch_token() {
+    let pool = load_pool().await;
+
+    sqlx::query("DELETE FROM users WHERE name = $1")
+        .bind("name")
+        .execute(&pool)
+        .await
+        .unwrap();
+
+    server_on(|| async {
+        let user = UserDto {
+            name: String::from("name"),
+            password: String::from("password"),
+        };
+        let client = Client::new();
+
+        let res = client
+            .post("http://localhost:8080/user")
+            .json(&user)
+            .send()
+            .await
+            .unwrap();
+
+        assert_eq!(res.status(), 201);
+
+        let res = client
+            .post("http://localhost:8080/auth")
+            .json(&user)
+            .send()
+            .await
+            .unwrap();
+
+        assert_eq!(res.status(), 200);
+
+        let auth_token = res.json::<AuthToken>().await.unwrap();
+
+        assert!(auth_token.token.len() > 10);
     })
     .await;
 

@@ -1,7 +1,5 @@
-use std::thread::sleep;
-use std::time::Duration;
-
-use actix_web::{HttpResponse, Responder, get, post, web};
+use actix_web::{HttpResponse, Responder, post, web};
+use async_trait::async_trait;
 use bcrypt::{DEFAULT_COST, hash};
 use serde::{Deserialize, Serialize};
 use sqlx::Pool;
@@ -40,23 +38,25 @@ pub async fn create(pool: web::Data<Pool<Postgres>>, body: web::Json<UserDto>) -
     }
 }
 
-struct UserRepo<'a> {
+pub struct UserRepo<'a> {
     pool: &'a Pool<Postgres>,
 }
 
+#[async_trait]
 pub trait IUserRepo {
-    fn exists(&self, name: &str) -> impl Future<Output = bool>;
-    fn password_hash(&self, password: &str) -> impl Future<Output = String>;
-    fn register(&self, dto: &UserDto) -> impl Future<Output = ()>;
-    fn fetch_by_name(&self, name: &str) -> impl Future<Output = User>;
+    async fn exists(&self, name: &str) -> bool;
+    async fn password_hash(&self, password: &str) -> String;
+    async fn register(&self, dto: &UserDto);
+    async fn fetch_by_name(&self, name: &str) -> User;
 }
 
 impl<'a> UserRepo<'a> {
-    fn new(pool: &'a Pool<Postgres>) -> Self {
+    pub fn new(pool: &'a Pool<Postgres>) -> Self {
         Self { pool }
     }
 }
 
+#[async_trait]
 impl IUserRepo for UserRepo<'_> {
     async fn exists(&self, name: &str) -> bool {
         let exists: (bool,) = sqlx::query_as(
@@ -141,6 +141,7 @@ mod tests {
         mock_exists: bool,
     }
 
+    #[async_trait]
     impl IUserRepo for MockUserRepo {
         async fn exists(&self, _: &str) -> bool {
             self.mock_exists
@@ -155,8 +156,8 @@ mod tests {
             assert_eq!(dto.password, "pass");
         }
 
-        fn fetch_by_name(&self, name: &str) -> impl Future<Output = User> {
-            async move { todo!() }
+        async fn fetch_by_name(&self, name: &str) -> User {
+            todo!()
         }
     }
 
