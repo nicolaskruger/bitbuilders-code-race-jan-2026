@@ -1,11 +1,13 @@
 use std::env;
 
 use actix_web::{
-    HttpResponse, Responder, post,
+    HttpRequest, HttpResponse, Responder,
+    http::{StatusCode, header},
+    post,
     web::{self, Json},
 };
-use api::user;
-use jsonwebtoken::{EncodingKey, Header, encode};
+use api::user::{self, User};
+use jsonwebtoken::{DecodingKey, EncodingKey, Header, Validation, decode, encode};
 use serde::{Deserialize, Serialize};
 use sqlx::{Pool, Postgres};
 
@@ -29,6 +31,44 @@ struct UserDto {
 #[derive(Debug, Deserialize, Serialize, Clone)]
 struct AuthMsg {
     msg: String,
+}
+
+pub async fn auth_user(req: HttpRequest) -> Result<user::User, StatusCode> {
+    let token = req.headers().get(header::AUTHORIZATION);
+
+    if token == None {
+        Err(StatusCode::UNAUTHORIZED)
+    } else if let Some(token) = token {
+        let token_sercret = env::var("token_sercret").unwrap_or(String::from("secret"));
+        let token = token.to_str().ok().and_then(|h| h.strip_prefix("Bearer "));
+
+        if token == None {
+            Err(StatusCode::UNAUTHORIZED)
+        } else if let Some(token) = token {
+            print!("{}", token);
+            let res = decode::<Claims>(
+                token,
+                &DecodingKey::from_secret(token_sercret.as_ref()),
+                &Validation::default(),
+            );
+            if let Err(err) = res {
+                print!("{}", err);
+                Err(StatusCode::UNAUTHORIZED)
+            } else if let Ok(td) = res {
+                Ok(User {
+                    id: td.claims.user_id,
+                    name: String::from("tmp"),
+                    password: String::from("tmp"),
+                })
+            } else {
+                Err(StatusCode::UNAUTHORIZED)
+            }
+        } else {
+            Err(StatusCode::UNAUTHORIZED)
+        }
+    } else {
+        todo!()
+    }
 }
 
 #[post("/auth")]
@@ -97,6 +137,7 @@ impl<R: user::IUserRepo> IAuthService for AuthService<R> {
 
 #[cfg(test)]
 mod tests {
+    use actix_web::http::header;
     use api::user;
 
     use super::*;
@@ -203,5 +244,78 @@ mod tests {
         let auth_token = res.unwrap();
 
         assert!(!auth_token.token.is_empty());
+    }
+    #[tokio::test]
+    async fn auth_middeware_no_token() {
+        let req = actix_web::test::TestRequest::default().to_http_request();
+        let res = auth_user(req).await;
+
+        assert!(res.is_err());
+
+        assert_eq!(res.err().unwrap(), StatusCode::UNAUTHORIZED);
+    }
+
+    #[tokio::test]
+    async fn auth_middeware_not_valid_jwt_token() {
+        let req = actix_web::test::TestRequest::default()
+            .insert_header((header::AUTHORIZATION, "invalid token"))
+            .to_http_request();
+        let res = auth_user(req).await;
+
+        assert!(res.is_err());
+
+        assert_eq!(res.err().unwrap(), StatusCode::UNAUTHORIZED);
+    }
+
+    #[derive(Debug, Serialize, Deserialize)]
+    struct WrongClaim {}
+
+    #[tokio::test]
+    async fn auth_middeware_not_rigth_clames() {
+        let claim = WrongClaim {};
+
+        let token_sercret = env::var("token_sercret").unwrap_or(String::from("secret"));
+
+        let token = encode(
+            &Header::default(),
+            &claim,
+            &EncodingKey::from_secret(token_sercret.as_ref()),
+        )
+        .unwrap();
+        let req = actix_web::test::TestRequest::default()
+            .insert_header((header::AUTHORIZATION, token))
+            .to_http_request();
+        let res = auth_user(req).await;
+
+        assert!(res.is_err());
+
+        assert_eq!(res.err().unwrap(), StatusCode::UNAUTHORIZED);
+    }
+
+    #[tokio::test]
+    async fn auth_middeware_rigth_clames() {
+        let claim = Claims { user_id: 123 };
+
+        let token_sercret = env::var("token_sercret").unwrap_or(String::from("secret"));
+
+        let token = encode(
+            &Header::default(),
+            &claim,
+            &EncodingKey::from_secret(token_sercret.as_ref()),
+        )
+        .unwrap();
+
+        let token = format!("Bearer {}", token);
+
+        let req = actix_web::test::TestRequest::default()
+            .insert_header((header::AUTHORIZATION, token))
+            .to_http_request();
+        let res = auth_user(req).await;
+
+        assert!(res.is_ok());
+
+        if let Ok(res) = res {
+            assert_eq!(res.id, 123)
+        }
     }
 }
