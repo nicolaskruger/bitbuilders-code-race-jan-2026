@@ -37,32 +37,6 @@ struct AuthMsg {
     msg: String,
 }
 
-pub async fn auth_user(req: HttpRequest) -> Result<user::User, StatusCode> {
-    let token_sercret = env::var("token_sercret").unwrap_or(String::from("secret"));
-    let claim: Option<_> = req
-        .headers()
-        .get(header::AUTHORIZATION)
-        .and_then(|h| h.to_str().ok())
-        .and_then(|h| h.strip_prefix("Bearer "))
-        .map(|token| {
-            decode::<Claims>(
-                token,
-                &DecodingKey::from_secret(token_sercret.as_ref()),
-                &Validation::default(),
-            )
-        });
-
-    if let Some(Ok(cl)) = claim {
-        Ok(User {
-            id: cl.claims.user_id,
-            name: String::from("tmp"),
-            password: String::from("tmp"),
-        })
-    } else {
-        Err(StatusCode::UNAUTHORIZED)
-    }
-}
-
 #[post("/auth")]
 pub async fn auth(pool: web::Data<Pool<Postgres>>, body: Json<UserDto>) -> impl Responder {
     let user_repo = user::UserRepo::new(&pool);
@@ -76,6 +50,7 @@ pub async fn auth(pool: web::Data<Pool<Postgres>>, body: Json<UserDto>) -> impl 
 
 trait IAuthService {
     async fn auth(&self, user: &UserDto) -> Result<AuthResponse, String>;
+    async fn user(&self, req: HttpRequest) -> Result<user::User, StatusCode>;
 }
 
 struct AuthService<UserRepo: user::IUserRepo> {
@@ -133,6 +108,27 @@ impl<R: user::IUserRepo> IAuthService for AuthService<R> {
             Ok(self.token_build(user).await)
         }
     }
+    async fn user(&self, req: HttpRequest) -> Result<user::User, StatusCode> {
+        let token_sercret = env::var("token_sercret").unwrap_or(String::from("secret"));
+        let claim: Option<_> = req
+            .headers()
+            .get(header::AUTHORIZATION)
+            .and_then(|h| h.to_str().ok())
+            .and_then(|h| h.strip_prefix("Bearer "))
+            .map(|token| {
+                decode::<Claims>(
+                    token,
+                    &DecodingKey::from_secret(token_sercret.as_ref()),
+                    &Validation::default(),
+                )
+            });
+
+        if let Some(Ok(cl)) = claim {
+            Ok(self.user_repo.fetch_by_id(cl.claims.user_id).await)
+        } else {
+            Err(StatusCode::UNAUTHORIZED)
+        }
+    }
 }
 
 #[cfg(test)]
@@ -171,6 +167,15 @@ mod tests {
                 password: user.password.clone(),
             }
         }
+
+        async fn fetch_by_id(&self, _: i32) -> User {
+            let user = User {
+                id: 1,
+                name: String::from("name"),
+                password: String::from("password"),
+            };
+            user
+        }
     }
 
     #[tokio::test]
@@ -190,6 +195,14 @@ mod tests {
         let res: Result<_, _> = service.auth(&dto).await;
 
         assert!(res.is_err(), "Not created because it already exists.");
+    }
+
+    fn template_service() -> AuthService<MockUserRepo<'static>> {
+        let mock_repo = MockUserRepo {
+            mock_exists: true,
+            fetch_user: None,
+        };
+        AuthService::new(mock_repo)
     }
 
     #[tokio::test]
@@ -248,7 +261,8 @@ mod tests {
     #[tokio::test]
     async fn auth_middeware_no_token() {
         let req = actix_web::test::TestRequest::default().to_http_request();
-        let res = auth_user(req).await;
+        let service = template_service();
+        let res = service.user(req).await;
 
         assert!(res.is_err());
 
@@ -260,7 +274,9 @@ mod tests {
         let req = actix_web::test::TestRequest::default()
             .insert_header((header::AUTHORIZATION, "invalid token"))
             .to_http_request();
-        let res = auth_user(req).await;
+
+        let service = template_service();
+        let res = service.user(req).await;
 
         assert!(res.is_err());
 
@@ -285,7 +301,9 @@ mod tests {
         let req = actix_web::test::TestRequest::default()
             .insert_header((header::AUTHORIZATION, token))
             .to_http_request();
-        let res = auth_user(req).await;
+
+        let service = template_service();
+        let res = service.user(req).await;
 
         assert!(res.is_err());
 
@@ -313,12 +331,14 @@ mod tests {
         let req = actix_web::test::TestRequest::default()
             .insert_header((header::AUTHORIZATION, token))
             .to_http_request();
-        let res = auth_user(req).await;
+
+        let service = template_service();
+        let res = service.user(req).await;
 
         assert!(res.is_ok());
 
         if let Ok(res) = res {
-            assert_eq!(res.id, 123)
+            assert_eq!(res.id, 1)
         }
     }
 }

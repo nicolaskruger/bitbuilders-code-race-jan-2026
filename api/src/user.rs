@@ -48,6 +48,7 @@ pub trait IUserRepo {
     async fn password_hash(&self, password: &str) -> String;
     async fn register(&self, dto: &UserDto);
     async fn fetch_by_name(&self, name: &str) -> User;
+    async fn fetch_by_id(&self, id: i32) -> User;
 }
 
 impl<'a> UserRepo<'a> {
@@ -96,6 +97,20 @@ impl IUserRepo for UserRepo<'_> {
         "#,
         )
         .bind(name)
+        .fetch_one(self.pool)
+        .await
+        .unwrap()
+    }
+
+    async fn fetch_by_id(&self, id: i32) -> User {
+        sqlx::query_as::<_, User>(
+            r#"
+            SELECT id, name, password
+            FROM users
+            WHERE id = $1
+        "#,
+        )
+        .bind(id)
         .fetch_one(self.pool)
         .await
         .unwrap()
@@ -157,6 +172,10 @@ mod tests {
         }
 
         async fn fetch_by_name(&self, _: &str) -> User {
+            todo!()
+        }
+
+        async fn fetch_by_id(&self, _: i32) -> User {
             todo!()
         }
     }
