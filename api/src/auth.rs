@@ -1,4 +1,7 @@
-use std::env;
+use std::{
+    env,
+    time::{SystemTime, UNIX_EPOCH},
+};
 
 use actix_web::{
     HttpRequest, HttpResponse, Responder,
@@ -14,6 +17,7 @@ use sqlx::{Pool, Postgres};
 #[derive(Debug, Serialize, Deserialize)]
 struct Claims {
     user_id: i32,
+    exp: u64,
 }
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
@@ -45,7 +49,7 @@ pub async fn auth_user(req: HttpRequest) -> Result<user::User, StatusCode> {
         if token == None {
             Err(StatusCode::UNAUTHORIZED)
         } else if let Some(token) = token {
-            print!("{}", token);
+            print!("token {}", token);
             let res = decode::<Claims>(
                 token,
                 &DecodingKey::from_secret(token_sercret.as_ref()),
@@ -89,7 +93,14 @@ trait IAuthService {
 struct AuthService<UserRepo: user::IUserRepo> {
     user_repo: UserRepo,
 }
+fn one_year_exp() -> u64 {
+    let now = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap()
+        .as_secs();
 
+    now + 60 * 60 * 24 * 365
+}
 impl<UserRepo: user::IUserRepo> AuthService<UserRepo> {
     fn new(user_repo: UserRepo) -> Self {
         Self { user_repo }
@@ -100,6 +111,7 @@ impl<UserRepo: user::IUserRepo> AuthService<UserRepo> {
 
         let claim = Claims {
             user_id: fetch_user.id,
+            exp: one_year_exp(),
         };
 
         let token_sercret = env::var("token_sercret").unwrap_or(String::from("secret"));
@@ -294,7 +306,10 @@ mod tests {
 
     #[tokio::test]
     async fn auth_middeware_rigth_clames() {
-        let claim = Claims { user_id: 123 };
+        let claim = Claims {
+            user_id: 123,
+            exp: one_year_exp(),
+        };
 
         let token_sercret = env::var("token_sercret").unwrap_or(String::from("secret"));
 
