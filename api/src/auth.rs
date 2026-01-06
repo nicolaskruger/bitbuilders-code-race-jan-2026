@@ -38,40 +38,28 @@ struct AuthMsg {
 }
 
 pub async fn auth_user(req: HttpRequest) -> Result<user::User, StatusCode> {
-    let token = req.headers().get(header::AUTHORIZATION);
-
-    if token == None {
-        Err(StatusCode::UNAUTHORIZED)
-    } else if let Some(token) = token {
-        let token_sercret = env::var("token_sercret").unwrap_or(String::from("secret"));
-        let token = token.to_str().ok().and_then(|h| h.strip_prefix("Bearer "));
-
-        if token == None {
-            Err(StatusCode::UNAUTHORIZED)
-        } else if let Some(token) = token {
-            print!("token {}", token);
-            let res = decode::<Claims>(
+    let token_sercret = env::var("token_sercret").unwrap_or(String::from("secret"));
+    let claim: Option<_> = req
+        .headers()
+        .get(header::AUTHORIZATION)
+        .and_then(|h| h.to_str().ok())
+        .and_then(|h| h.strip_prefix("Bearer "))
+        .map(|token| {
+            decode::<Claims>(
                 token,
                 &DecodingKey::from_secret(token_sercret.as_ref()),
                 &Validation::default(),
-            );
-            if let Err(err) = res {
-                print!("{}", err);
-                Err(StatusCode::UNAUTHORIZED)
-            } else if let Ok(td) = res {
-                Ok(User {
-                    id: td.claims.user_id,
-                    name: String::from("tmp"),
-                    password: String::from("tmp"),
-                })
-            } else {
-                Err(StatusCode::UNAUTHORIZED)
-            }
-        } else {
-            Err(StatusCode::UNAUTHORIZED)
-        }
+            )
+        });
+
+    if let Some(Ok(cl)) = claim {
+        Ok(User {
+            id: cl.claims.user_id,
+            name: String::from("tmp"),
+            password: String::from("tmp"),
+        })
     } else {
-        todo!()
+        Err(StatusCode::UNAUTHORIZED)
     }
 }
 
