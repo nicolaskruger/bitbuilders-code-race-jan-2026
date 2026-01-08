@@ -183,3 +183,69 @@ async fn e2e_fetch_token() {
         .await
         .unwrap();
 }
+
+#[derive(Debug, Deserialize)]
+struct UserResponse {
+    id: i32,
+    name: String,
+}
+
+#[tokio::test]
+#[ignore = "e2e"]
+async fn e2e_me() {
+    let pool = load_pool().await;
+
+    sqlx::query("DELETE FROM users WHERE name = $1")
+        .bind("name")
+        .execute(&pool)
+        .await
+        .unwrap();
+
+    server_on(|| async {
+        let user = UserDto {
+            name: String::from("name"),
+            password: String::from("password"),
+        };
+        let client = Client::new();
+
+        let res = client
+            .post("http://localhost:8080/user")
+            .json(&user)
+            .send()
+            .await
+            .unwrap();
+
+        assert_eq!(res.status(), 201);
+
+        let res = client
+            .post("http://localhost:8080/auth")
+            .json(&user)
+            .send()
+            .await
+            .unwrap();
+
+        assert_eq!(res.status(), 200);
+
+        let auth_token = res.json::<AuthToken>().await.unwrap();
+
+        assert!(auth_token.token.len() > 10);
+
+        let res = client
+            .post("http://localhost:8080/user/me")
+            .bearer_auth(auth_token.token)
+            .send()
+            .await
+            .unwrap();
+
+        let user = res.json::<UserResponse>().await.unwrap();
+
+        assert_eq!(user.name, String::from("name"));
+    })
+    .await;
+
+    sqlx::query("DELETE FROM users WHERE name = $1")
+        .bind("name")
+        .execute(&pool)
+        .await
+        .unwrap();
+}
