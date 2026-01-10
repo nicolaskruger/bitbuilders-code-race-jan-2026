@@ -1,4 +1,5 @@
-use super::user_enitty::{UserFetched, UserRegister};
+use crate::contract::repo::user_entity::{UserFetched, UserRegister};
+use crate::contract::repo::user_repo_trait::IUserRepo;
 use async_trait::async_trait;
 use bcrypt::{DEFAULT_COST, hash};
 use sqlx::Pool;
@@ -6,15 +7,6 @@ use sqlx::postgres::Postgres;
 
 pub struct UserRepo<'a> {
     pool: &'a Pool<Postgres>,
-}
-
-#[async_trait]
-pub trait IUserRepo {
-    async fn exists(&self, name: &str) -> bool;
-    async fn password_hash(&self, password: &str) -> String;
-    async fn register(&self, dto: &UserRegister);
-    async fn fetch_by_name(&self, name: &str) -> UserFetched;
-    async fn fetch_by_id(&self, id: i32) -> UserFetched;
 }
 
 impl<'a> UserRepo<'a> {
