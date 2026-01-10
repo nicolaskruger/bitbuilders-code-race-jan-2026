@@ -1,4 +1,4 @@
-use super::user_entity::{UserFetched, UserRegister};
+use crate::entity::user_entity::{UserFetched, UserRegister};
 
 use async_trait::async_trait;
 

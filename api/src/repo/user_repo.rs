@@ -1,5 +1,5 @@
-use crate::contract::repo::user_entity::{UserFetched, UserRegister};
 use crate::contract::repo::user_repo_trait::IUserRepo;
+use crate::entity::user_entity::{UserFetched, UserRegister};
 use async_trait::async_trait;
 use bcrypt::{DEFAULT_COST, hash};
 use sqlx::Pool;
