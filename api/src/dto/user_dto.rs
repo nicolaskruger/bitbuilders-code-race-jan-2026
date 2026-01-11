@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct UserRespose {
-    msg: String,
+    pub msg: String,
 }
 
 #[derive(Debug, Deserialize, Serialize, Clone, sqlx::FromRow)]
