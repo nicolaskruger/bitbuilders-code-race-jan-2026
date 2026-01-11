@@ -14,6 +14,7 @@ use actix_web::{
     HttpRequest,
     http::{StatusCode, header::AUTHORIZATION},
 };
+use async_trait::async_trait;
 use jsonwebtoken::{DecodingKey, EncodingKey, Header, Validation, decode, encode};
 
 pub struct AuthService<UserRepo: IUserRepo> {
@@ -61,7 +62,8 @@ impl<UserRepo: IUserRepo> AuthService<UserRepo> {
     }
 }
 
-impl<R: IUserRepo> IAuthService for AuthService<R> {
+#[async_trait(?Send)]
+impl<R: IUserRepo + Sync> IAuthService for AuthService<R> {
     async fn auth(&self, user: &UserAuth) -> Result<AuthResponse, String> {
         if !self.user_repo.exists(&user.name).await {
             Err(String::from("User de not exists."))
@@ -71,6 +73,7 @@ impl<R: IUserRepo> IAuthService for AuthService<R> {
             Ok(self.token_build(user).await)
         }
     }
+
     async fn user(&self, req: HttpRequest) -> Result<UserFetched, StatusCode> {
         let token_sercret = env::var("token_sercret").unwrap_or(String::from("secret"));
         let claim: Option<_> = req
@@ -97,7 +100,7 @@ impl<R: IUserRepo> IAuthService for AuthService<R> {
 #[cfg(test)]
 mod tests {
     use actix_web::http::header;
-    use jsonwebtoken::{DecodingKey, EncodingKey, Header, Validation, decode, encode};
+    use jsonwebtoken::{EncodingKey, Header, encode};
     use serde::{Deserialize, Serialize};
 
     use crate::entity::user_entity::UserRegister;

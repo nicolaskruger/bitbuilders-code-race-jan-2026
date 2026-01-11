@@ -1,3 +1,5 @@
+use async_trait::async_trait;
+
 use crate::{
     contract::{repo::user_repo_trait::IUserRepo, service::user_service_trait::IUserService},
     entity::user_entity::UserRegister,
@@ -13,7 +15,8 @@ impl<R: IUserRepo> UserService<R> {
     }
 }
 
-impl<R: IUserRepo> IUserService for UserService<R> {
+#[async_trait]
+impl<R: IUserRepo + Sync> IUserService for UserService<R> {
     async fn register(&self, dto: &UserRegister) -> Result<(), String> {
         if self.repo.exists(&dto.name).await {
             Err(String::from("Not created because it already exists."))
