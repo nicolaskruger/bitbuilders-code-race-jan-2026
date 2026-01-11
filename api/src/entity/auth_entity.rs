@@ -22,3 +22,16 @@ pub struct UserDto {
 pub struct AuthMsg {
     pub msg: String,
 }
+
+#[derive(Debug, Deserialize, Serialize, Clone)]
+pub struct UserAuth {
+    pub name: String,
+    pub password: String,
+}
+
+#[derive(Debug, Deserialize, Serialize, Clone)]
+pub struct LoggedUser {
+    pub id: i32,
+    pub name: String,
+    pub password: String,
+}
