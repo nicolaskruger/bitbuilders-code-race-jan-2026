@@ -1,4 +1,4 @@
-use api::user::UserDto;
+use api::entity::user_entity::UserRegister;
 use dotenvy::dotenv;
 use reqwest::Client;
 use serde::Deserialize;
@@ -75,7 +75,7 @@ async fn no_user_empty_user_bad_request() {
 #[ignore = "e2e"]
 async fn full_body_ok() {
     server_on(|| async {
-        let user = UserDto {
+        let user = UserRegister {
             name: String::from("name"),
             password: String::from("password"),
         };
@@ -108,7 +108,7 @@ async fn e2e_register_user() {
     let pool = load_pool().await;
 
     server_on(|| async {
-        let user = UserDto {
+        let user = UserRegister {
             name: String::from("name"),
             password: String::from("password"),
         };
@@ -147,7 +147,7 @@ async fn e2e_fetch_token() {
         .unwrap();
 
     server_on(|| async {
-        let user = UserDto {
+        let user = UserRegister {
             name: String::from("name"),
             password: String::from("password"),
         };
@@ -186,7 +186,6 @@ async fn e2e_fetch_token() {
 
 #[derive(Debug, Deserialize)]
 struct UserResponse {
-    id: i32,
     name: String,
 }
 
@@ -202,7 +201,7 @@ async fn e2e_me() {
         .unwrap();
 
     server_on(|| async {
-        let user = UserDto {
+        let user = UserRegister {
             name: String::from("name"),
             password: String::from("password"),
         };
