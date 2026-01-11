@@ -1,5 +1,5 @@
 use crate::{
-    contract::{repo::user_repo_trait::IUserRepo, service::user_service::IUserService},
+    contract::{repo::user_repo_trait::IUserRepo, service::user_service_trait::IUserService},
     entity::user_entity::UserRegister,
 };
 
