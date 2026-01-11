@@ -1,9 +1,9 @@
 mod auth;
-mod user;
 
 use std::env;
 
 use actix_web::{App, HttpResponse, HttpServer, Responder, get, web};
+use api::handler::user_handler;
 use dotenvy::dotenv;
 use sqlx::{Pool, Postgres, postgres::PgPoolOptions};
 
@@ -36,7 +36,7 @@ async fn main() -> std::io::Result<()> {
         App::new()
             .app_data(web::Data::new(pool.clone()))
             .service(hello)
-            .service(user::create)
+            .service(user_handler::create)
             .service(auth::auth)
             .route("/hey", web::get().to(manual_hello))
     })
