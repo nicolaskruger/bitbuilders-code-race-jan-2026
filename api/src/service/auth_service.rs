@@ -4,7 +4,8 @@ use std::{
 };
 
 use crate::{
-    contract::repo::{auth_repo_trait::IAuthService, user_repo_trait::IUserRepo},
+    contract::repo::user_repo_trait::IUserRepo,
+    contract::service::auth_service_trait::IAuthService,
     entity::{
         auth_entity::{AuthResponse, Claims, UserAuth},
         user_entity::UserFetched,

@@ -5,7 +5,7 @@ use actix_web::{
 use sqlx::{Pool, Postgres};
 
 use crate::{
-    contract::repo::auth_repo_trait::IAuthService,
+    contract::service::auth_service_trait::IAuthService,
     dto::user_dto::UserDto,
     entity::{
         auth_entity::{AuthMe, AuthMsg, UserAuth},
