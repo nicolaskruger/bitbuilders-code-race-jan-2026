@@ -1,3 +1,5 @@
+use actix_web::http::StatusCode;
+use api::entity::auth_entity::AuthMe;
 use api::entity::user_entity::UserRegister;
 use dotenvy::dotenv;
 use reqwest::Client;
@@ -230,13 +232,15 @@ async fn e2e_me() {
         assert!(auth_token.token.len() > 10);
 
         let res = client
-            .post("http://localhost:8080/user/me")
+            .get("http://localhost:8080/auth/me")
             .bearer_auth(auth_token.token)
             .send()
             .await
             .unwrap();
 
-        let user = res.json::<UserResponse>().await.unwrap();
+        assert_eq!(res.status().as_u16(), StatusCode::OK.as_u16());
+
+        let user = res.json::<AuthMe>().await.unwrap();
 
         assert_eq!(user.name, String::from("name"));
     })

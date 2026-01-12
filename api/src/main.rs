@@ -36,6 +36,7 @@ async fn main() -> std::io::Result<()> {
             .service(hello)
             .service(user_handler::create)
             .service(auth_handler::auth)
+            .service(auth_handler::me)
             .route("/hey", web::get().to(manual_hello))
     })
     .bind(("127.0.0.1", 8080))?

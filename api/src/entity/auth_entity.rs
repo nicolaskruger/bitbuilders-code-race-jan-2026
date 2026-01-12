@@ -35,3 +35,9 @@ pub struct LoggedUser {
     pub name: String,
     pub password: String,
 }
+
+#[derive(Debug, Deserialize, Serialize, Clone)]
+pub struct AuthMe {
+    pub id: i32,
+    pub name: String,
+}
