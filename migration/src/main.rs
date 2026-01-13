@@ -1,3 +1,4 @@
+mod item;
 mod user;
 
 use dotenvy::dotenv;
@@ -16,6 +17,7 @@ async fn main() -> Result<(), sqlx::Error> {
         .await?;
 
     user::create(&pool).await;
+    item::create(&pool).await;
 
     Ok(())
 }
